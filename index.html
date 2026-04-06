@@ -8,16 +8,16 @@
         body {
             margin: 0;
             padding: 0;
-            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            background: #000;
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: white;
+            font-family: sans-serif;
         }
 
+        /* Stars */
         body::before {
             content: "";
             position: absolute;
@@ -27,26 +27,9 @@
             box-shadow: 
                 15vw 15vh #fff, 85vw 20vh #fff, 40vw 60vh #fff, 
                 10vw 85vh #fff, 95vw 90vh #fff, 30vw 35vh #fff,
-                65vw 10vh #aaa, 70vw 75vh #fff, 20vw 45vh #aaa,
-                55vw 5vh #fff, 80vw 45vh #fff, 5vw 30vh #aaa;
-            animation: twinkle 4s infinite ease-in-out;
-        }
-
-        body::after {
-            content: "";
-            position: absolute;
-            top: 0; left: 0;
-            width: 1px; height: 1px;
-            background: transparent;
-            box-shadow: 
-                25vw 25vh #5df, 75vw 80vh #f5d, 45vw 15vh #5df, 
-                60vw 65vh #f5d, 10vw 10vh #fff, 90vw 5vh #5df;
-            animation: twinkle 6s infinite reverse;
-        }
-
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 1; }
+                65vw 10vh #fff, 70vw 75vh #fff, 20vw 45vh #fff,
+                55vw 5vh #fff, 80vw 45vh #fff, 5vw 30vh #fff;
+            z-index: 1;
         }
 
         .sun-container {
@@ -55,29 +38,26 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            width: 100vmin;
+            height: 100vmin;
         }
 
         .sun {
-            width: 140px;
-            height: 140px;
+            width: 15vmin;
+            height: 15vmin;
             border-radius: 50%;
-            box-shadow: 0 0 60px rgba(255, 165, 0, 0.6);
-            border: 4px solid #fff;
-            animation: sun-pulse 4s ease-in-out infinite;
-        }
-
-        @keyframes sun-pulse {
-            0%, 100% { transform: scale(1); filter: brightness(1); }
-            50% { transform: scale(1.1); filter: brightness(1.3); }
+            box-shadow: 0 0 40px rgba(255, 255, 0, 0.3);
+            object-fit: cover;
+            z-index: 20;
         }
 
         .orbit {
             position: absolute;
-            width: 480px;
-            height: 480px;
             border: 1px dashed rgba(255, 255, 255, 0.15);
             border-radius: 50%;
-            animation: rotate-orbit 20s linear infinite;
+            pointer-events: none; /* Allows clicking planets "behind" orbits */
+            display: flex;
+            justify-content: center;
         }
 
         @keyframes rotate-orbit {
@@ -87,46 +67,69 @@
 
         .planet {
             position: absolute;
-            width: 90px;
-            height: 90px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 3px solid #fff;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            transition: transform 0.3s, box-shadow 0.3s;
+            border-radius: 50%; 
+            border: none; 
+            transition: transform 0.3s ease;
             cursor: pointer;
+            pointer-events: auto; 
+            overflow: hidden;
+            top: 0;
+            transform: translateY(-50%);
         }
 
         .planet:hover {
-            transform: scale(1.4) !important;
-            box-shadow: 0 0 30px #fff;
-            z-index: 50;
+            transform: translateY(-50%) scale(1.2) !important;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            z-index: 100;
         }
-
-        .oil { top: -45px; left: 50%; margin-left: -45px; }
-        .beef { bottom: -45px; left: 50%; margin-left: -45px; }
-        .abigus { top: 50%; left: -45px; margin-top: -45px; }
 
         .planet img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            animation: counter-rotate 20s linear infinite;
+            display: block;
         }
+
+        .orbit-beef {
+            width: 35vmin; 
+            height: 35vmin;
+            animation: rotate-orbit 10s linear infinite;
+        }
+        .beef-planet {
+            width: 7vmin; 
+            height: 7vmin;
+        }
+
+        .orbit-abigus {
+            width: 60vmin; 
+            height: 60vmin;
+            animation: rotate-orbit 18s linear infinite;
+        }
+        .abigus-planet {
+            width: 9vmin; 
+            height: 9vmin;
+        }
+
+        .orbit-usa {
+            width: 85vmin; 
+            height: 85vmin;
+            animation: rotate-orbit 30s linear infinite;
+        }
+        .usa-planet {
+            width: 12vmin; 
+            height: 12vmin;
+        }
+
+        .planet img { animation: counter-rotate inherit; }
+        .orbit-beef .planet img { animation-duration: 10s; }
+        .orbit-abigus .planet img { animation-duration: 18s; }
+        .orbit-usa .planet img { animation-duration: 30s; }
 
         @keyframes counter-rotate {
             from { transform: rotate(360deg); }
             to { transform: rotate(0deg); }
         }
 
-        .footer {
-            position: fixed;
-            bottom: 20px;
-            font-size: 14px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0.6;
-        }
     </style>
 </head>
 <body>
@@ -134,21 +137,24 @@
     <div class="sun-container">
         <img src="misc/mu.jpg" class="sun" alt="MU">
 
-        <div class="orbit">
-            
-            <a href="oil/index.html" class="planet oil">
-                <img src="oil/usa.jpg" alt="OIL">
-            </a>
-
-            <a href="beef/index.html" class="planet beef">
+        <div class="orbit orbit-beef">
+            <a href="beef/index.html" class="planet beef-planet">
                 <img src="beef/beef.jpg" alt="BEEF">
             </a>
+        </div>
 
-            <a href="abigus/index.html" class="planet abigus">
+        <div class="orbit orbit-abigus">
+            <a href="abigus/index.html" class="planet abigus-planet">
                 <img src="abigus/abigus.jpg" alt="ABIGUS">
             </a>
+        </div>
 
+        <div class="orbit orbit-usa">
+            <a href="oil/index.html" class="planet usa-planet">
+                <img src="oil/usa.jpg" alt="OIL">
+            </a>
         </div>
     </div>
+
 </body>
 </html>
