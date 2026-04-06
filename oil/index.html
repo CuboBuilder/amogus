@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>oil</title>
+    <style>
+        body { margin: 0; padding: 0; background: #1a1a1a; overflow: hidden; font-family: 'Courier New', monospace; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; user-select: none; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #ui { position: absolute; top: 20px; font-size: 3rem; z-index: 10; pointer-events: none; color: #00ff00; width: 100%; text-align: center; }
+        
+        #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #play-btn { padding: 20px 50px; font-size: 2rem; background: #333; color: #00ff00; border: 2px solid #00ff00; cursor: pointer; font-family: inherit; font-weight: bold; transition: 0.2s; }
+
+        #choice-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        .choice-text { font-size: 3rem; margin-bottom: 40px; color: yellow; text-align: center;}
+        .btn-container { display: flex; gap: 40px; }
+        .choice-btn { padding: 20px 40px; font-size: 2.5rem; background: black; border: 3px solid white; color: white; cursor: pointer; font-family: inherit; transition: 0.2s; }
+
+        #usa-screamer { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 2000; }
+        #usa-full-img { width: 100%; height: 100%; object-fit: cover; animation: shake 0.1s infinite; }
+        @keyframes shake { 0% { transform: translate(5px, 5px); } 50% { transform: translate(-5px, -5px); } 100% { transform: translate(5px, -5px); } }
+
+        #boom-container { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 2000; }
+        #boom-gif { width: 100%; height: 100%; object-fit: cover; }
+        
+        @keyframes blinkImageRed { 0% { filter: drop-shadow(0 0 0px red) brightness(1); } 50% { filter: drop-shadow(0 0 50px red) brightness(0.5) sepia(1) saturate(10000%) hue-rotate(-50deg); } 100% { filter: drop-shadow(0 0 0px red) brightness(1); } }
+        .panic-mode #game { animation: blinkImageRed 0.3s infinite; }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <button id="play-btn" onclick="startGame()"><img src="usa.jpg" height="128" width="128"></img></button>
+    </div>
+
+    <div id="ui">OIL: 0 / 1000 ml</div>
+    <canvas id="game"></canvas>
+
+    <div id="choice-overlay">
+        <div class="choice-text">ESCAPE DISTANCE:</div>
+        <div class="btn-container">
+            <button class="choice-btn" onclick="triggerUSA()">1 MILE</button>
+            <button class="choice-btn" onclick="triggerBoom()">1 KM</button>
+        </div>
+    </div>
+
+    <div id="usa-screamer"><img src="usa.jpg" id="usa-full-img"></div>
+    <div id="boom-container"><img src="/misc/boom.gif" id="boom-gif"></div>
+
+    <audio id="usa-snd" src="usa.mp3"></audio>
+    <audio id="siren-snd" src="/misc/siren.mp3"></audio>
+    <audio id="boom-snd" src="/misc/boom.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const ui = document.getElementById('ui');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let gameState = -1; 
+        let oilCollected = 0;
+        let chaseTimer = 0; 
+        
+        const mugSize = 80;
+        const obsWidth = 100;
+		const obsHeight = 150;
+        const player = { x: canvas.width/2, y: canvas.height - 120, width: mugSize, height: mugSize };
+        const usa = { x: canvas.width/2, y: canvas.height + 200, size: 200 }; 
+        
+        let drops = [];
+        let obstacles = [];
+
+        const mugImg = new Image(); mugImg.src = 'mug.jpg';
+        const usaImg = new Image(); usaImg.src = 'usa.jpg';
+        const obsImg = new Image(); obsImg.src = 'AAAAAAA.jpg';
+
+        function startGame() {
+            document.getElementById('start-overlay').style.display = 'none';
+            gameState = 0; 
+            draw();
+        }
+
+        function playMug() {
+            let s = new Audio("mug.mp3");
+            s.volume = 0.5;
+            s.play();
+            s.onended = function() { this.remove(); };
+        }
+
+        function spawnDrop() {
+            if (Math.random() < 0.05) {
+                drops.push({ x: Math.random() * (canvas.width - 20), y: -20, size: 15, speed: 5 + Math.random() * 3 });
+            }
+        }
+
+        function spawnObstacle() {
+            if (Math.random() < 0.05) {
+                obstacles.push({ x: Math.random() * (canvas.width - obsWidth), y: -obsHeight, width: obsWidth, height: obsHeight, speed: 12 });
+            }
+        }
+
+        function update() {
+            if (gameState === 0) {
+                spawnDrop();
+                for (let i = drops.length - 1; i >= 0; i--) {
+                    let d = drops[i];
+                    d.y += d.speed;
+                    
+                    if (d.x > player.x && d.x < player.x + player.width && d.y > player.y && d.y < player.y + player.height) {
+                        oilCollected += 50;
+                        ui.innerText = `OIL: ${oilCollected} / 1000 ml`;
+                        playMug();
+                        drops.splice(i, 1);
+                        
+                        if (oilCollected >= 1000) {
+                            gameState = 1;
+                            ui.innerText = "!!! RUN !!!";
+                            ui.style.color = "red";
+                            
+                            drops = []; 
+                            player.y = canvas.height / 3;
+                            usa.y = canvas.height + 50;
+                            chaseTimer = 900; 
+                            break;
+                        }
+                    } else if (d.y > canvas.height) {
+                        drops.splice(i, 1);
+                    }
+                }
+            } else if (gameState === 1) {
+                chaseTimer--;
+                spawnObstacle();
+
+                usa.x += (player.x + player.width/2 - usa.size/2 - usa.x) * 0.08;
+                
+                if (usa.y > player.y + 150) usa.y -= 0.6;
+
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    let o = obstacles[i];
+                    o.y += o.speed;
+
+                    if (o.y + o.height > player.y && o.y < player.y + player.height &&
+                        o.x + o.width > player.x && o.x < player.x + player.width) {
+                        
+                        obstacles.splice(i, 1);
+                        usa.y -= 60;
+                        player.hit = true;
+                        setTimeout(() => player.hit = false, 200);
+                    } else if (o.y > canvas.height) {
+                        obstacles.splice(i, 1);
+                    }
+                }
+
+                if (usa.y < player.y + player.height - 30) {
+                    gameState = 2; 
+                    triggerUSA();
+                }
+
+                if (chaseTimer <= 0 && gameState === 1) {
+                    gameState = 2; 
+                    document.getElementById('choice-overlay').style.display = 'flex';
+                    ui.style.display = 'none';
+                }
+            }
+        }
+
+        function draw() {
+            if (gameState === 2) return; 
+
+            ctx.fillStyle = gameState === 1 ? "#300" : "#1a1a1a"; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 1) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                for(let i=0; i<10; i++) {
+                    let lineY = (Date.now() * 0.8 + i * 120) % canvas.height;
+                    ctx.fillRect(canvas.width/2 - 10, lineY, 20, 60);
+                }
+            }
+
+            ctx.fillStyle = "black";
+            drops.forEach(d => {
+                ctx.beginPath(); ctx.arc(d.x, d.y, d.size, 0, Math.PI*2); ctx.fill();
+            });
+
+            obstacles.forEach(o => {
+				ctx.save();
+				ctx.translate(o.x + o.width, o.y); 
+				ctx.scale(-1, 1); 
+				ctx.drawImage(obsImg, 0, 0, o.width, o.height);
+				ctx.restore();
+			});
+
+            if (!player.hit || Math.floor(Date.now() / 50) % 2 === 0) {
+                ctx.drawImage(mugImg, player.x, player.y, player.width, player.height);
+            }
+
+            if (gameState === 1) {
+                ctx.drawImage(usaImg, usa.x, usa.y, usa.size, usa.size);
+            }
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('mousemove', e => { 
+            player.x = e.clientX - player.width/2; 
+        });
+        window.addEventListener('touchmove', e => { 
+            player.x = e.touches[0].clientX - player.width/2; 
+            e.preventDefault(); 
+        }, {passive: false});
+
+        function triggerUSA() {
+            gameState = 2;
+            document.getElementById('choice-overlay').style.display = 'none';
+            document.getElementById('usa-screamer').style.display = 'block';
+            let usaSound = document.getElementById('usa-snd');
+            usaSound.play();
+            usaSound.onended = () => { window.location.href = "about:blank"; };
+        }
+
+        function triggerBoom() {
+            gameState = 2;
+            document.getElementById('choice-overlay').style.display = 'none';
+            document.body.classList.add('panic-mode');
+            let siren = document.getElementById('siren-snd');
+            let boom = document.getElementById('boom-snd');
+            siren.play();
+            siren.onended = () => {
+                boom.play();
+                setTimeout(() => {
+                    document.getElementById('boom-container').style.display = 'block';
+                    setTimeout(() => { window.location.href = "about:blank"; }, 3000);
+                }, 4350); 
+            };
+        }
+    </script>
+</body>
+</html>

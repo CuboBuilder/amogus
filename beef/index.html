@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>beef</title>
+    <style>
+        body { margin: 0; padding: 0; background: black; overflow: hidden; font-family: 'Courier New', monospace; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        canvas { display: block; position: absolute; top: 0; left: 0; }
+        #ui { position: absolute; top: 20px; font-size: 4rem; z-index: 10; pointer-events: none; }
+        @keyframes blinkImageRed { 
+            0% { filter: drop-shadow(0 0 0px red) brightness(1); } 
+            50% { filter: drop-shadow(0 0 50px red) brightness(0.5) sepia(1) saturate(10000%) hue-rotate(-50deg); } 
+            100% { filter: drop-shadow(0 0 0px red) brightness(1); } 
+        }
+        .panic-mode #game { animation: blinkImageRed 0.3s infinite; }
+        #boom-container { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 999; }
+        #boom-gif { width: 100%; height: 100%; object-fit: cover; }
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.9); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <button id="play-btn" onclick="startGame()"><img src="beef.jpg" alt="beef" width="128" height="128"></button>
+    </div>
+
+    <div id="ui">0/3</div>
+    <canvas id="stars"></canvas>
+    <canvas id="game"></canvas>
+
+    <div id="boom-container">
+        <img src="/misc/boom.gif" id="boom-gif">
+    </div>
+
+    <audio id="siren-snd" src="/misc/siren.mp3"></audio>
+    <audio id="boom-snd" src="/misc/boom.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const starCanvas = document.getElementById('stars');
+        const starCtx = starCanvas.getContext('2d');
+        const ui = document.getElementById('ui');
+        const sirenSnd = document.getElementById('siren-snd');
+        const boomSnd = document.getElementById('boom-snd');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        starCanvas.width = window.innerWidth;
+        starCanvas.height = window.innerHeight;
+
+        let gameStarted = false;
+        let score = 0;
+        let isPanicMode = false;
+        const paddleWidth = 20, paddleHeight = 120;
+        const beefSize = 80;
+        
+        const player = { x: 30, y: canvas.height/2 - 60 };
+        const ai = { x: canvas.width - 50, y: canvas.height/2 - 60 };
+        const beefImg = new Image();
+        beefImg.src = 'beef.jpg';
+        
+        const muImg = new Image();
+		muImg.src = '/misc/mu.jpg';
+
+        const ball = { x: canvas.width / 2, y: canvas.height / 2, dx: 7, dy: 7 };
+
+        let stars = Array.from({length: 80}, () => ({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            size: Math.random() * 2.5, speed: Math.random() * 0.8 + 0.2
+        }));
+
+        function startGame() {
+            document.getElementById('overlay').style.display = 'none';
+            gameStarted = true;
+            draw();
+        }
+
+        function playBeef() {
+            if(!gameStarted) return;
+            let s = new Audio("beef.mp3");
+            s.volume = 0.6;
+            s.play();
+            s.onended = function() { this.remove(); };
+        }
+
+        function update() {
+            if (isPanicMode || !gameStarted) return;
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.y <= 0 || ball.y + beefSize >= canvas.height) ball.dy *= -1;
+
+            ai.y += (ball.y - (ai.y + paddleHeight/2)) * 0.1;
+
+            if (ball.x <= player.x + paddleWidth && ball.y + beefSize > player.y && ball.y < player.y + paddleHeight) {
+                ball.dx = Math.abs(ball.dx) * 1.05; 
+                playBeef();
+            }
+            if (ball.x + beefSize >= ai.x && ball.y + beefSize > ai.y && ball.y < ai.y + paddleHeight) {
+                ball.dx = -Math.abs(ball.dx) * 1.05;
+                playBeef();
+            }
+
+            if (ball.x < 0) resetBall();
+            if (ball.x > canvas.width) {
+                score++;
+                ui.innerText = score+"/3";
+                if (score >= 3) startPanicSequence();
+                else resetBall();
+            }
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2; ball.y = canvas.height / 2;
+            ball.dx = 7 * (Math.random() > 0.5 ? 1 : -1);
+        }
+
+        let acceleratorInterval;
+        let activeSounds = [];
+
+        function startPanicSequence() {
+            isPanicMode = true;
+            document.body.classList.add('panic-mode');
+            sirenSnd.play();
+
+            let delay = 1500;
+            const accelerate = () => {
+                if (!isPanicMode) return;
+                if (activeSounds.length >= 50) {
+                    let old = activeSounds.shift();
+                    old.pause(); old.remove();
+                }
+                let accelSound = new Audio("beef.mp3");
+                accelSound.volume = 0.2;
+                activeSounds.push(accelSound);
+                accelSound.play();
+                accelSound.onended = function() {
+                    let idx = activeSounds.indexOf(this);
+                    if (idx > -1) activeSounds.splice(idx, 1);
+                    this.remove();
+                };
+                delay = Math.max(30, delay * 0.7);
+                acceleratorInterval = setTimeout(accelerate, delay);
+            };
+            accelerate();
+
+            sirenSnd.onended = function() {
+                clearTimeout(acceleratorInterval);
+                isPanicMode = false;
+                activeSounds.forEach(s => { s.pause(); s.remove(); });
+                startBoomSequence();
+            };
+        }
+
+        function startBoomSequence() {
+            boomSnd.play();
+            setTimeout(() => {
+                document.getElementById('boom-container').style.display = 'block';
+                setTimeout(() => {
+                    window.close();
+                    setTimeout(() => { window.location.href = "about:blank"; }, 100);
+                }, 3000);
+            }, 4350);
+        }
+
+        function draw() {
+            if(!gameStarted) return;
+
+            starCtx.clearRect(0,0, canvas.width, canvas.height);
+            starCtx.fillStyle = "white";
+            stars.forEach(s => {
+                starCtx.beginPath(); starCtx.arc(s.x, s.y, s.size, 0, Math.PI*2); starCtx.fill();
+                s.y += s.speed; if (s.y > canvas.height) s.y = 0;
+            });
+
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+
+            ctx.drawImage(muImg, player.x, player.y, paddleWidth, paddleHeight);
+            ctx.drawImage(muImg, ai.x, ai.y, paddleWidth, paddleHeight);
+            ctx.drawImage(beefImg, ball.x, ball.y, beefSize, beefSize);
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('mousemove', e => { player.y = e.clientY - paddleHeight/2; });
+        window.addEventListener('touchmove', e => { 
+            player.y = e.touches[0].clientY - paddleHeight/2; 
+            e.preventDefault(); 
+        }, {passive: false});
+    </script>
+</body>
+</html>

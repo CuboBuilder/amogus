@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>abigus</title>
+    <style>
+        body { 
+            margin: 0; padding: 0; background: black; color: white; 
+            font-family: 'Courier New', monospace; overflow: hidden; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; height: 100vh; 
+        }
+
+        #abigus { 
+            width: 100vw; height: 100vh; 
+            object-fit: contain;
+            cursor: pointer; 
+            transition: transform 0.05s, filter 0.2s; 
+            z-index: 1; 
+        }
+
+        #counter { 
+            position: absolute; top: 20px; 
+            font-size: 4rem; 
+            pointer-events: none;
+        }
+        
+        @keyframes blinkImageRed { 
+            0% { filter: drop-shadow(0 0 0px red) brightness(1); } 
+            50% { filter: drop-shadow(0 0 50px red) brightness(0.5) sepia(1) saturate(10000%) hue-rotate(-50deg); } 
+            100% { filter: drop-shadow(0 0 0px red) brightness(1); } 
+        }
+
+        .panic-mode #abigus { 
+            animation: blinkImageRed 0.3s infinite; 
+            cursor: default; 
+        }
+        
+        #boom-container { 
+            display: none; position: fixed; top: 0; left: 0; 
+            width: 100vw; height: 100vh; background: black; z-index: 999; 
+        }
+        #boom-gif { width: 100%; height: 100%; object-fit: cover; }
+    </style>
+</head>
+<body>
+
+    <div id="counter">0/100</div>
+    <img src="abigus.jpg" id="abigus" alt="ABIGUS" onclick="handleClick()">
+
+    <div id="boom-container">
+        <img src="/misc/boom.gif" id="boom-gif">
+    </div>
+
+    <audio id="siren-snd" src="/misc/siren.mp3"></audio>
+    <audio id="boom-snd" src="/misc/boom.mp3"></audio>
+
+    <script>
+        let clicks = 0;
+        let isPanicMode = false;
+
+        const abigus = document.getElementById('abigus');
+        const counter = document.getElementById('counter');
+        const boomContainer = document.getElementById('boom-container');
+        const sirenSnd = document.getElementById('siren-snd');
+        const boomSnd = document.getElementById('boom-snd');
+
+        function handleClick() {
+            if (isPanicMode) return;
+
+            clicks++;
+            counter.innerText = clicks+"/100";
+
+            let soundClone = new Audio("abigus.mp3");
+            soundClone.volume = 0.3;
+            soundClone.play();
+            
+            soundClone.onended = function() {
+                this.remove();
+            };
+
+            if (clicks >= 100) {
+                startPanicSequence();
+            }
+        }
+
+        let acceleratorInterval;
+		let activeSounds = [];
+
+		function startPanicSequence() {
+			isPanicMode = true;
+			document.body.classList.add('panic-mode');
+
+			sirenSnd.play();
+
+			let delay = 1000;
+
+			const accelerate = () => {
+				if (!isPanicMode) return;
+
+				if (activeSounds.length >= 25) {
+					let oldSound = activeSounds.shift();
+					oldSound.pause();
+					oldSound.remove();
+				}
+
+				let accelSound = new Audio("abigus.mp3");
+				accelSound.volume = 0.3;
+				activeSounds.push(accelSound);
+				accelSound.play();
+				
+				clicks++;
+				counter.innerText = clicks;
+				
+				accelSound.onended = function() {
+					let index = activeSounds.indexOf(this);
+					if (index > -1) activeSounds.splice(index, 1);
+					this.remove();
+				};
+
+				delay = Math.max(30, delay * 0.7);
+				acceleratorInterval = setTimeout(accelerate, delay);
+			};
+
+			accelerate();
+
+			sirenSnd.onended = function() {
+				clearTimeout(acceleratorInterval);
+				activeSounds.forEach(s => {
+					s.pause();
+					s.remove();
+				});
+				activeSounds = [];
+				startBoomSequence();
+			};
+		}
+
+        function startBoomSequence() {
+            boomSnd.play();
+
+            setTimeout(() => {
+                showFinalBoom();
+                isPanicMode = false; 
+            }, 4350);
+        }
+
+        function showFinalBoom() {
+            boomContainer.style.display = 'block';
+
+            setTimeout(() => {
+                window.close();
+                setTimeout(() => {
+                    window.location.href = "about:blank";
+                }, 100);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
